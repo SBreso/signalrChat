@@ -38,6 +38,10 @@ namespace Client
             hub.Invoke("OnDisconnected", true);
             Environment.Exit(0);
         }
+        public void Write(string sms)
+        {
+            Console.WriteLine(sms);
+        }
 
         static void Login()
         {
@@ -85,13 +89,44 @@ namespace Client
             //String url = @"http://192.168.1.25:8080/signalr";
             HubConnection connection = new HubConnection(url);
             hub = connection.CreateHubProxy("MyHub");
-            connection.Start().Wait();            
-            connection.Closed += new Action(CloseApp);            
+            connection.Start().Wait();
+            //eventos
+            connection.Received += new Action<string>(OnReceived);
+            connection.ConnectionSlow += new Action(OnConnectoinSlow);
+            connection.Reconnecting += new Action(OnRecconecting);
+            connection.Reconnected += new Action(OnReconnected);
+            connection.StateChanged += new Action<StateChange>(OnStateChanged);                   
+            connection.Closed += new Action(OnClosed);            
             hub.Invoke("Login", Name);            
             hub.On("addMessage", x => Console.WriteLine(x));            
         }
 
-        private static void CloseApp()
+        private static void OnStateChanged(StateChange e)
+        {
+            Console.WriteLine("{0}=>{1}", e.OldState, e.NewState);
+        }
+
+        private static void OnReconnected()
+        {
+            Console.WriteLine("Reconnected!!");
+        }
+
+        private static void OnRecconecting()
+        {
+            Console.WriteLine("Reconnecting...");
+        }
+
+        private static void OnConnectoinSlow()
+        {
+            Console.WriteLine("Problems with the connection");
+        }
+
+        private static void OnReceived(String e)
+        {
+            Console.WriteLine(e);
+        }
+
+        private static void OnClosed()
         {
             Environment.Exit(-1);
         }

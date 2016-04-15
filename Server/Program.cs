@@ -5,12 +5,14 @@ using Microsoft.Owin.Hosting;
 using Owin;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace Server
 {
     class Program
     {
+        static MyHub myHub = new MyHub();
         static List<Client> ClientsList;
         static void Main(string[] args)
         {
@@ -22,6 +24,8 @@ namespace Server
                 Console.WriteLine("Server running at {0}",url);
                 ShowMenu();
             }
+           
+
         }
         private static void ShowMenu()
         {
@@ -35,6 +39,10 @@ namespace Server
                     ShowClientList();
                 }
                 else if (op.Key == ConsoleKey.NumPad2)
+                {
+                    myHub.SendFromServer("hola");
+                }
+                else if (op.Key == ConsoleKey.NumPad3)
                 {
                     Environment.Exit(0);
                 }else
@@ -73,6 +81,8 @@ namespace Server
     {
         public void Configuration(IAppBuilder app)
         {
+            GlobalHost.HubPipeline.AddModule(new ErrorHandlingPipelineModule());
+            GlobalHost.HubPipeline.AddModule(new LoggingPipelineModule());
             app.UseCors(CorsOptions.AllowAll);
             app.MapSignalR();
         }
@@ -91,6 +101,12 @@ namespace Server
             Console.WriteLine(sms);
             Clients.All.addMessage(sms);
         }
+        public void SendFromServer(String sms)
+        {
+            //string methodToCall = "Write";
+            //IClientProxy proxy = (IClientProxy)Clients.All;
+            //proxy.Invoke(methodToCall, sms);
+        }
         public override Task OnConnected()
         {
             return base.OnConnected();
@@ -100,6 +116,32 @@ namespace Server
             Program.RemoveClient(Context.ConnectionId);
             Console.WriteLine("Client disconnected: " + Context.ConnectionId);
             return base.OnDisconnected(true);
+        }
+    }
+    public class ErrorHandlingPipelineModule : HubPipelineModule
+    {
+        protected override void OnIncomingError(ExceptionContext exceptionContext, IHubIncomingInvokerContext invokerContext)
+        {
+            Debug.WriteLine("=> Exception " + exceptionContext.Error.Message);
+            if (exceptionContext.Error.InnerException != null)
+            {
+                Debug.WriteLine("=> Inner Exception " + exceptionContext.Error.InnerException.Message);
+            }
+            base.OnIncomingError(exceptionContext, invokerContext);
+
+        }
+    }
+    public class LoggingPipelineModule : HubPipelineModule
+    {
+        protected override bool OnBeforeIncoming(IHubIncomingInvokerContext context)
+        {
+            Debug.WriteLine("=> Invoking " + context.MethodDescriptor.Name + " on hub " + context.MethodDescriptor.Hub.Name);
+            return base.OnBeforeIncoming(context);
+        }
+        protected override bool OnBeforeOutgoing(IHubOutgoingInvokerContext context)
+        {
+            Debug.WriteLine("<= Invoking " + context.Invocation.Method + " on client hub " + context.Invocation.Hub);
+            return base.OnBeforeOutgoing(context);
         }
     }
 }
